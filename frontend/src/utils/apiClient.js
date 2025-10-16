@@ -4,11 +4,12 @@ import axios from 'axios';
 const cache = new Map();
 const CACHE_TIME = 300000; // 5 minutes
 
-// Optimized axios instance
+// Production-ready axios instance
 const apiClient = axios.create({
-  baseURL: '/api',
-  timeout: 15000,
-  headers: { 'Content-Type': 'application/json' }
+  baseURL: import.meta.env.VITE_API_URL || 'https://your-render-backend-url.onrender.com/api',
+  timeout: 30000,
+  headers: { 'Content-Type': 'application/json' },
+  withCredentials: true
 });
 
 // Optimized request interceptor

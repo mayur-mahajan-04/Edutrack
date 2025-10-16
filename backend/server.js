@@ -12,9 +12,22 @@ const app = express();
 app.set('trust proxy', 1);
 app.use(helmet({ contentSecurityPolicy: false }));
 app.use(cors({
-  origin: [process.env.FRONTEND_URL, 'http://192.168.185.166:3001', 'http://localhost:3001'],
+  origin: function(origin, callback) {
+    const allowedOrigins = [
+      process.env.FRONTEND_URL,
+      'https://edutrack-dun.vercel.app',
+      'http://localhost:3001',
+      'http://192.168.185.166:3001'
+    ];
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true,
-  maxAge: 86400
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
 // Optimized rate limiting
@@ -38,6 +51,11 @@ app.use((req, res, next) => {
     if (duration > 1000) console.log(`Slow: ${req.method} ${req.originalUrl} - ${duration}ms`);
   });
   next();
+});
+
+// Health check route
+app.get('/health', (req, res) => {
+  res.status(200).json({ status: 'OK', timestamp: new Date().toISOString() });
 });
 
 // Routes

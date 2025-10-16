@@ -102,6 +102,11 @@ router.post('/login', authLimiter, userValidation.login, validateInput, async (r
   }
 });
 
+// Test route
+router.get('/test', (req, res) => {
+  res.json({ message: 'Backend is working!', timestamp: new Date().toISOString() });
+});
+
 // Get current user
 router.get('/me', auth, async (req, res) => {
   try {
