@@ -115,22 +115,36 @@ export default function Register() {
   };
 
   const handleFaceCapture = (faceDescriptor) => {
-    const toArray = (v) => (Array.isArray(v) ? v : [v]);
-    const descs = toArray(faceDescriptor);
-    const validDescs = descs.filter((d) => Array.isArray(d) && d.length === 128);
+    if (faceDescriptor === null) {
+      // User skipped face capture
+      setFormData({
+        ...formData,
+        faceDescriptor: null,
+      });
+    } else {
+      const toArray = (v) => (Array.isArray(v) ? v : [v]);
+      const descs = toArray(faceDescriptor);
+      const validDescs = descs.filter((d) => Array.isArray(d) && d.length === 128);
 
-    let flattened = null;
-    if (validDescs.length === 1) flattened = validDescs[0];
-    else if (validDescs.length > 1) {
-      const sums = Array(128).fill(0);
-      for (const d of validDescs) for (let i = 0; i < 128; i++) sums[i] += d[i];
-      flattened = sums.map((s) => s / validDescs.length);
+      let flattened = null;
+      if (validDescs.length === 1) {
+        flattened = validDescs[0];
+      } else if (validDescs.length > 1) {
+        // Average multiple descriptors for better accuracy
+        const sums = Array(128).fill(0);
+        for (const d of validDescs) {
+          for (let i = 0; i < 128; i++) {
+            sums[i] += d[i];
+          }
+        }
+        flattened = sums.map((s) => s / validDescs.length);
+      }
+
+      setFormData({
+        ...formData,
+        faceDescriptor: flattened,
+      });
     }
-
-    setFormData({
-      ...formData,
-      faceDescriptor: flattened,
-    });
     handleNext();
   };
 
@@ -397,10 +411,17 @@ export default function Register() {
 
       case 1:
         return (
-          <FaceCapture
-            onCapture={handleFaceCapture}
-            onError={() => setError('Face capture failed. Please try again.')}
-          />
+          <Box>
+            <FaceCapture
+              onCapture={handleFaceCapture}
+              onError={() => setError('Face capture failed. Please try again.')}
+            />
+            <Box sx={{ mt: 2, textAlign: 'center' }}>
+              <Typography variant="body2" color="text.secondary">
+                Face registration helps prevent proxy attendance and enhances security.
+              </Typography>
+            </Box>
+          </Box>
         );
 
       case 2:
@@ -425,6 +446,9 @@ export default function Register() {
               <Typography variant="body2">Department: {formData.department}</Typography>
               <Typography variant="body2">Gender: {formData.gender}</Typography>
               <Typography variant="body2">Phone: {formData.phone}</Typography>
+              <Typography variant="body2" sx={{ color: formData.faceDescriptor ? '#4caf50' : '#ff9800' }}>
+                Face Registration: {formData.faceDescriptor ? '✓ Completed' : '⚠ Skipped'}
+              </Typography>
             </Box>
             <Button
               variant="contained"
@@ -542,28 +566,38 @@ export default function Register() {
               <Button 
                 disabled={activeStep === 0} 
                 onClick={handleBack}
-                sx={{ borderRadius: 2, px: 3, py: 1.5, textTransform: 'none' }}
-              >
-                ← Back
-              </Button>
-              <Button 
-                variant="contained" 
-                onClick={handleNext} 
-                disabled={activeStep === 1}
-                sx={{
-                  borderRadius: 2,
-                  px: 4,
-                  py: 1.5,
-                  background: '#60b5ff',
+                sx={{ 
+                  borderRadius: 2, 
+                  px: 3, 
+                  py: 1.5, 
                   textTransform: 'none',
-                  fontSize: '1rem',
+                  color: '#60b5ff',
                   '&:hover': {
-                    background: '#4a9eff'
+                    backgroundColor: 'rgba(96, 181, 255, 0.04)'
                   }
                 }}
               >
-                {activeStep === 1 ? 'Capture Face' : 'Next →'}
+                ← Back
               </Button>
+              {activeStep === 0 && (
+                <Button 
+                  variant="contained" 
+                  onClick={handleNext}
+                  sx={{
+                    borderRadius: 2,
+                    px: 4,
+                    py: 1.5,
+                    background: '#60b5ff',
+                    textTransform: 'none',
+                    fontSize: '1rem',
+                    '&:hover': {
+                      background: '#4a9eff'
+                    }
+                  }}
+                >
+                  Next →
+                </Button>
+              )}
             </Box>
           )}
 

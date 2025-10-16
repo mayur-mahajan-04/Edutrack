@@ -1,16 +1,39 @@
 import React, { useRef, useEffect, useState } from 'react';
-import { Box, Button, Typography, Alert } from '@mui/material';
+import { Box, Button, Typography, Alert, CircularProgress, LinearProgress } from '@mui/material';
 import Webcam from 'react-webcam';
-import { fastCaptureDescriptors } from '../utils/faceRecognition';
+import { instantCapture, preloadModels } from '../utils/faceRecognition';
 
 const FaceCapture = ({ onCapture, onError }) => {
   const webcamRef = useRef(null);
   const [isCapturing, setIsCapturing] = useState(false);
   const [error, setError] = useState('');
   const [modelsAvailable, setModelsAvailable] = useState(true);
+  const [modelsLoading, setModelsLoading] = useState(true);
+  const [progress, setProgress] = useState(0);
+
+  useEffect(() => {
+    const loadModels = async () => {
+      try {
+        setProgress(20);
+        const loaded = await preloadModels();
+        setProgress(100);
+        setModelsAvailable(loaded);
+        if (!loaded) {
+          setError('Face recognition models could not be loaded. You can skip this step.');
+        }
+      } catch (err) {
+        console.error('Model loading error:', err);
+        setModelsAvailable(false);
+        setError('Face recognition models are not available. You can skip this step.');
+      } finally {
+        setModelsLoading(false);
+      }
+    };
+    loadModels();
+  }, []);
 
   const captureImage = async () => {
-    if (!webcamRef.current) return;
+    if (!webcamRef.current || !modelsAvailable) return;
 
     setIsCapturing(true);
     setError('');
@@ -19,36 +42,32 @@ const FaceCapture = ({ onCapture, onError }) => {
       const video = webcamRef.current.video;
       
       if (!video || video.readyState !== 4) {
-        setError('Camera not ready. Please wait and try again.');
+        setError('Camera not ready.');
         setIsCapturing(false);
         return;
       }
 
-      const faceDescriptors = await fastCaptureDescriptors(video, 5);
+      // Instant capture - no delays
+      const faceDescriptor = await instantCapture(video);
 
-      if (faceDescriptors && faceDescriptors.length > 0) {
-        onCapture(faceDescriptors);
+      if (faceDescriptor) {
+        onCapture([faceDescriptor]);
         setError('');
       } else {
-        setError('Unable to capture face data. Please ensure your face is clearly visible and try again.');
+        setError('No face detected. Ensure good lighting and face visibility.');
       }
     } catch (err) {
       console.error('Face capture error:', err);
-      if (err.message.includes('models not available')) {
-        setModelsAvailable(false);
-        setError('Face recognition models are not available. Please ensure the models are downloaded or use the skip option.');
-      } else {
-        setError('Error capturing face. Please ensure your face is clearly visible and try again.');
-        onError?.(err);
-      }
+      setError('Capture failed. Try again.');
+      onError?.(err);
     } finally {
       setIsCapturing(false);
     }
   };
 
   const skipFaceCapture = () => {
-    // Allow users to skip face capture if models aren't available
-    onCapture([Array.from({length: 128}, () => Math.random())]);
+    // Allow users to skip face capture
+    onCapture(null); // Pass null to indicate skipped
   };
 
   return (
@@ -57,8 +76,26 @@ const FaceCapture = ({ onCapture, onError }) => {
         Face Registration
       </Typography>
       <Typography variant="body2" color="textSecondary" gutterBottom>
-        Position your face in the camera. Fast capture in progress...
+        {modelsLoading ? 'Loading models...' : 'Click capture for instant face registration'}
       </Typography>
+      
+      {modelsLoading && (
+        <Box sx={{ mb: 2 }}>
+          <LinearProgress 
+            variant="determinate" 
+            value={progress} 
+            sx={{ 
+              mb: 1,
+              '& .MuiLinearProgress-bar': {
+                backgroundColor: '#60b5ff'
+              }
+            }} 
+          />
+          <Typography variant="caption" color="textSecondary">
+            Preparing face recognition...
+          </Typography>
+        </Box>
+      )}
       
       <Box sx={{ mb: 2, display: 'flex', justifyContent: 'center' }}>
         <Webcam
@@ -67,7 +104,11 @@ const FaceCapture = ({ onCapture, onError }) => {
           width={320}
           height={240}
           screenshotFormat="image/jpeg"
-          style={{ border: '2px solid #ccc', borderRadius: '8px' }}
+          style={{ 
+            border: '2px solid #60b5ff', 
+            borderRadius: '8px',
+            opacity: modelsLoading ? 0.5 : 1
+          }}
         />
       </Box>
 
@@ -81,26 +122,52 @@ const FaceCapture = ({ onCapture, onError }) => {
         <Button
           variant="contained"
           onClick={captureImage}
-          disabled={isCapturing}
-          sx={{ minWidth: 120 }}
+          disabled={isCapturing || modelsLoading || !modelsAvailable}
+          sx={{ 
+            minWidth: 120,
+            background: '#60b5ff',
+            '&:hover': { background: '#4a9eff' }
+          }}
         >
-          {isCapturing ? 'Capturing...' : 'Capture Face'}
+          {isCapturing ? (
+            <>
+              <CircularProgress size={16} sx={{ mr: 1, color: 'white' }} />
+              Capturing...
+            </>
+          ) : (
+            'Capture Face'
+          )}
         </Button>
         
-        {!modelsAvailable && (
+        {(!modelsAvailable || modelsLoading) && (
           <Button
             variant="outlined"
             onClick={skipFaceCapture}
-            sx={{ minWidth: 120 }}
+            disabled={modelsLoading}
+            sx={{ 
+              minWidth: 120,
+              borderColor: '#60b5ff',
+              color: '#60b5ff',
+              '&:hover': {
+                borderColor: '#4a9eff',
+                backgroundColor: 'rgba(96, 181, 255, 0.04)'
+              }
+            }}
           >
-            Skip Face Capture
+            Skip for Now
           </Button>
         )}
       </Box>
       
-      {!modelsAvailable && (
+      {!modelsAvailable && !modelsLoading && (
         <Typography variant="caption" color="textSecondary" sx={{ mt: 1, display: 'block' }}>
-          Face recognition models are not available. You can still use the system without face verification.
+          Face recognition is optional. You can register without it and add it later.
+        </Typography>
+      )}
+      
+      {modelsAvailable && !modelsLoading && (
+        <Typography variant="caption" color="textSecondary" sx={{ mt: 1, display: 'block' }}>
+          💡 Instant capture - just look at camera and click
         </Typography>
       )}
     </Box>

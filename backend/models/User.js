@@ -21,14 +21,16 @@ const userSchema = new mongoose.Schema({
   timestamps: true
 });
 
-// Optimized compound indexes
+// Optimized compound indexes for faster queries
 userSchema.index({ role: 1, isActive: 1, department: 1 });
 userSchema.index({ email: 1, isActive: 1 });
+userSchema.index({ studentId: 1, role: 1 });
+userSchema.index({ department: 1, academicYear: 1, semester: 1 });
 
 userSchema.pre('save', async function(next) {
   try {
     if (!this.isModified('password')) return next();
-    this.password = await bcrypt.hash(this.password, 12);
+    this.password = await bcrypt.hash(this.password, 10); // Reduced from 12 to 10 for speed
     next();
   } catch (error) {
     next(error);

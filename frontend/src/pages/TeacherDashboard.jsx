@@ -1536,19 +1536,31 @@ const TeacherDashboard = () => {
     }, []);
 
     const fetchClasses = async () => {
+      setLoading(true);
       try {
         const response = await apiClient.get('/api/classes/teacher');
-        setClasses(response.data || []);
+        console.log('Classes response:', response.data);
+        setClasses(Array.isArray(response.data) ? response.data : []);
       } catch (error) {
         console.error('Error fetching classes:', error);
+        toast.error('Failed to fetch classes');
         setClasses([]);
+      } finally {
+        setLoading(false);
       }
     };
 
     const handleAddClass = async () => {
+      if (!isFormValid) {
+        toast.error('Please fill in all required fields');
+        return;
+      }
+      
       setLoading(true);
       try {
-        await apiClient.post('/api/classes', classForm);
+        console.log('Adding class:', classForm);
+        const response = await apiClient.post('/api/classes', classForm);
+        console.log('Class added:', response.data);
         toast.success('Class added successfully!');
         setOpenAddDialog(false);
         setClassForm({
@@ -1558,8 +1570,9 @@ const TeacherDashboard = () => {
           division: '',
           type: 'lecture'
         });
-        fetchClasses();
+        await fetchClasses();
       } catch (error) {
+        console.error('Add class error:', error);
         toast.error(error.response?.data?.message || 'Failed to add class');
       } finally {
         setLoading(false);
@@ -1743,7 +1756,11 @@ const TeacherDashboard = () => {
           </Paper>
 
           {/* Classes Display */}
-          {filteredClasses.length > 0 ? (
+          {loading ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+              <Typography variant="h6" color="textSecondary">Loading classes...</Typography>
+            </Box>
+          ) : filteredClasses.length > 0 ? (
             viewMode === 'grid' ? (
               <Grid container spacing={3}>
                 {filteredClasses.map((cls) => (

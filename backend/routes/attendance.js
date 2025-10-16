@@ -11,27 +11,30 @@ router.post('/mark', auth, authorize('student'), async (req, res) => {
   try {
     const { qrCodeId, latitude, longitude, faceVerified = false } = req.body;
 
-    const qrCode = await QRCodeModel.findById(qrCodeId).populate('teacher');
+    if (!qrCodeId) {
+      return res.status(400).json({ message: 'QR code ID is required' });
+    }
+
+    const qrCode = await QRCodeModel.findById(qrCodeId).populate('teacher', 'name').lean();
     if (!qrCode || !qrCode.isActive) {
       return res.status(400).json({ message: 'Invalid or inactive QR code' });
     }
 
-    // Check if QR code has expired
     if (new Date() > qrCode.expiresAt) {
+      await QRCodeModel.findByIdAndUpdate(qrCodeId, { isActive: false });
       return res.status(400).json({ message: 'QR code has expired' });
     }
 
-    // Check if attendance already marked for this subject today
+    // Check duplicate attendance (optimized query)
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
+    const tomorrow = new Date(today.getTime() + 24 * 60 * 60 * 1000);
     
     const existingAttendance = await Attendance.findOne({
       student: req.user._id,
       subject: qrCode.subject,
       date: { $gte: today, $lt: tomorrow }
-    });
+    }).lean();
 
     if (existingAttendance) {
       return res.status(400).json({ message: 'Attendance already marked for this subject today' });
@@ -41,14 +44,24 @@ router.post('/mark', auth, authorize('student'), async (req, res) => {
       student: req.user._id,
       teacher: qrCode.teacher._id,
       subject: qrCode.subject,
-      location: { latitude, longitude },
+      location: latitude && longitude ? { latitude, longitude } : undefined,
       verificationMethod: 'qr',
       qrCodeId,
-      faceVerified
+      faceVerified,
+      status: 'present'
     });
 
     const savedAttendance = await attendance.save();
-    res.json({ message: 'Attendance marked successfully', attendance: savedAttendance });
+    
+    res.json({ 
+      message: 'Attendance marked successfully', 
+      attendance: {
+        id: savedAttendance._id,
+        subject: savedAttendance.subject,
+        date: savedAttendance.date,
+        status: savedAttendance.status
+      }
+    });
   } catch (error) {
     console.error('Mark attendance error:', error.message);
     res.status(500).json({ message: 'Server error' });

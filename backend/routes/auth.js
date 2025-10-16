@@ -15,17 +15,38 @@ router.post('/register', authLimiter, userValidation.register, validateInput, as
     const { name, email, password, role, studentId, department, semester } = req.body;
 
     const normalizeDescriptor = (input) => {
-      if (!input) return undefined;
+      if (!input) return null; // Explicitly handle null for skipped face registration
+      
+      // Handle nested arrays from frontend
       const arr = Array.isArray(input) && Array.isArray(input[0]) ? input[0] : input;
-      if (!Array.isArray(arr)) return undefined;
-      const nums = arr.map((v) => Number(v)).filter((v) => Number.isFinite(v));
-      if (nums.length === 128) return nums;
-      return undefined;
+      if (!Array.isArray(arr)) return null;
+      
+      // Convert to numbers and validate
+      const nums = arr.map((v) => {
+        const num = Number(v);
+        return Number.isFinite(num) ? num : 0; // Default to 0 for invalid numbers
+      });
+      
+      // Ensure exactly 128 dimensions for face descriptors
+      if (nums.length === 128) {
+        return nums;
+      }
+      
+      return null;
     };
+    
     const faceDescriptor = normalizeDescriptor(req.body.faceDescriptor);
 
     // Log registration attempt without sensitive data
-    console.log('Registration attempt:', { name, email, role, studentId, department, semester });
+    console.log('Registration attempt:', { 
+      name, 
+      email, 
+      role, 
+      studentId, 
+      department, 
+      semester,
+      hasFaceData: !!faceDescriptor 
+    });
 
     const existingUser = await User.findOne({ email });
     if (existingUser) {

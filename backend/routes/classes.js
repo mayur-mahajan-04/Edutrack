@@ -7,7 +7,9 @@ const router = express.Router();
 // Get teacher's classes
 router.get('/teacher', auth, authorize('teacher'), async (req, res) => {
   try {
-    const teacherClasses = await Class.find({ teacher: req.user._id });
+    console.log('Fetching classes for teacher:', req.user._id);
+    const teacherClasses = await Class.find({ teacher: req.user._id }).populate('teacher', 'name email');
+    console.log('Found classes:', teacherClasses.length);
     res.json(teacherClasses);
   } catch (error) {
     console.error('Get teacher classes error:', error.message);
@@ -20,19 +22,42 @@ router.post('/', auth, authorize('teacher'), async (req, res) => {
   try {
     const { subject, department, class: className, division, type } = req.body;
     
-    const newClass = new Class({
+    // Validation
+    if (!subject || !department || !className || !division) {
+      return res.status(400).json({ message: 'All fields are required' });
+    }
+    
+    // Check for duplicate class
+    const existingClass = await Class.findOne({
+      teacher: req.user._id,
       subject,
       department,
       class: className,
       division,
-      type,
+      type
+    });
+    
+    if (existingClass) {
+      return res.status(400).json({ message: 'This class already exists' });
+    }
+    
+    const newClass = new Class({
+      subject: subject.trim(),
+      department: department.trim(),
+      class: className.trim(),
+      division: division.trim(),
+      type: type || 'lecture',
       teacher: req.user._id
     });
     
     await newClass.save();
+    console.log('Class created:', newClass);
     res.status(201).json(newClass);
   } catch (error) {
     console.error('Add class error:', error.message);
+    if (error.name === 'ValidationError') {
+      return res.status(400).json({ message: 'Invalid data provided' });
+    }
     res.status(500).json({ message: 'Server error' });
   }
 });

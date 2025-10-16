@@ -6,33 +6,34 @@ export const loadModels = async () => {
   if (modelsLoaded) return;
   
   try {
-    const MODEL_URL = '/models';
+    // Try CDN first for reliability
+    const CDN_URL = 'https://raw.githubusercontent.com/justadudewhohacks/face-api.js/master/weights';
     
     await Promise.all([
-      faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL),
-      faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
-      faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
+      faceapi.nets.ssdMobilenetv1.loadFromUri(CDN_URL),
+      faceapi.nets.faceLandmark68Net.loadFromUri(CDN_URL),
+      faceapi.nets.faceRecognitionNet.loadFromUri(CDN_URL)
     ]);
     
     modelsLoaded = true;
-    console.log('Face recognition models loaded successfully');
+    console.log('Models loaded from CDN');
   } catch (error) {
-    console.warn('Local models not found, trying CDN...');
     try {
-      const CDN_URL = 'https://raw.githubusercontent.com/justadudewhohacks/face-api.js/master/weights';
+      // Fallback to local
+      const MODEL_URL = '/models';
       
       await Promise.all([
-        faceapi.nets.ssdMobilenetv1.loadFromUri(CDN_URL),
-        faceapi.nets.faceLandmark68Net.loadFromUri(CDN_URL),
-        faceapi.nets.faceRecognitionNet.loadFromUri(CDN_URL)
+        faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL),
+        faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
+        faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
       ]);
       
       modelsLoaded = true;
-      console.log('Face recognition models loaded from CDN');
-    } catch (cdnError) {
-      console.error('Failed to load models from CDN:', cdnError);
+      console.log('Models loaded locally');
+    } catch (localError) {
+      console.error('Failed to load models:', localError);
       modelsLoaded = false;
-      throw new Error('Face recognition models not available');
+      throw new Error('Models unavailable');
     }
   }
 };
@@ -45,7 +46,7 @@ export const detectFace = async (imageElement) => {
     
     const detection = await faceapi
       .detectSingleFace(imageElement, new faceapi.SsdMobilenetv1Options({ 
-        minConfidence: 0.3,
+        minConfidence: 0.4, // Higher confidence for better quality
         maxResults: 1
       }))
       .withFaceLandmarks()
@@ -85,53 +86,48 @@ export const compareMultipleFaces = (storedDescriptors, currentDescriptor, thres
   }
 };
 
-export const fastCaptureDescriptors = async (videoElement, count = 5) => {
-  const descriptors = [];
-  const promises = [];
-  
-  for (let i = 0; i < count; i++) {
-    promises.push(
-      new Promise(async (resolve) => {
-        await new Promise(r => setTimeout(r, i * 200));
-        const desc = await getFaceDescriptor(videoElement);
-        resolve(desc);
-      })
-    );
+export const fastCaptureDescriptors = async (videoElement, count = 3) => {
+  // Ensure models are loaded first
+  if (!modelsLoaded) {
+    await loadModels();
   }
   
-  const results = await Promise.all(promises);
-  return results.filter(desc => desc && desc.length === 128);
+  const descriptors = [];
+  let attempts = 0;
+  const maxAttempts = count * 2; // Allow more attempts for better success rate
+  
+  while (descriptors.length < count && attempts < maxAttempts) {
+    const desc = await getFaceDescriptor(videoElement);
+    if (desc && desc.length === 128) {
+      descriptors.push(desc);
+    }
+    attempts++;
+    
+    // Small delay only if we need more descriptors
+    if (descriptors.length < count && attempts < maxAttempts) {
+      await new Promise(r => setTimeout(r, 100));
+    }
+  }
+  
+  return descriptors;
 };
 
 export const getFaceDescriptor = async (videoElement) => {
   try {
     if (!modelsLoaded) {
-      try {
-        await loadModels();
-      } catch (error) {
-        console.warn('Face recognition disabled - models not available');
-        return null;
-      }
+      throw new Error('Models not loaded');
     }
     
-    const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    // Direct video processing - no canvas for maximum speed
+    const detection = await faceapi
+      .detectSingleFace(videoElement, new faceapi.SsdMobilenetv1Options({ 
+        minConfidence: 0.3, // Lower for faster detection
+        maxResults: 1
+      }))
+      .withFaceLandmarks()
+      .withFaceDescriptor();
     
-    // Reduce canvas size for faster processing
-    const scale = 0.5;
-    canvas.width = (videoElement.videoWidth || 320) * scale;
-    canvas.height = (videoElement.videoHeight || 240) * scale;
-    
-    ctx.scale(scale, scale);
-    ctx.drawImage(videoElement, 0, 0);
-    
-    const detection = await detectFace(canvas);
-    
-    if (detection && detection.descriptor) {
-      return Array.from(detection.descriptor);
-    }
-    
-    return null;
+    return detection?.descriptor ? Array.from(detection.descriptor) : null;
     
   } catch (error) {
     console.error('Error getting face descriptor:', error);
@@ -147,18 +143,30 @@ export const setCachedDescriptor = (key, descriptor) => {
   descriptorCache.set(key, descriptor);
 };
 
-// Benchmark sequential captures to measure latency and stability
-export const benchmarkCapture = async (videoElement, count = 10) => {
-  const timesMs = [];
-  const descriptors = [];
-  for (let i = 0; i < count; i++) {
-    const t0 = performance.now();
-    const desc = await getFaceDescriptor(videoElement);
-    const t1 = performance.now();
-    timesMs.push(t1 - t0);
-    if (desc && desc.length === 128) descriptors.push(desc);
-    // small spacing to avoid hammering
-    await new Promise((r) => setTimeout(r, 100));
+// Quick single capture for fast registration
+export const instantCapture = async (videoElement) => {
+  if (!modelsLoaded) {
+    await loadModels();
   }
-  return { descriptors, timesMs };
+  
+  // Single attempt with optimized processing
+  return await getFaceDescriptor(videoElement);
 };
+
+// Aggressive preloading for instant availability
+export const preloadModels = async () => {
+  if (modelsLoaded) return true;
+  
+  try {
+    await loadModels();
+    return true;
+  } catch (error) {
+    console.warn('Preload failed:', error);
+    return false;
+  }
+};
+
+// Start loading immediately when module loads
+if (typeof window !== 'undefined') {
+  setTimeout(() => preloadModels(), 100);
+}

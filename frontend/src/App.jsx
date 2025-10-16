@@ -14,6 +14,7 @@ import AdminDashboard from './pages/AdminDashboard';
 import FaceRecognition from './pages/FaceRecognition';
 import Navbar from './components/Navbar';
 import Loading from './components/Loading';
+import ModelPreloader from './components/ModelPreloader';
 
 const theme = createTheme({
   palette: {
@@ -119,6 +120,7 @@ function App() {
       <AuthProvider>
         <Router>
           <div className="App">
+            <ModelPreloader />
             <AppRoutes />
             <ToastContainer position="top-right" autoClose={3000} />
           </div>

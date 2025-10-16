@@ -121,7 +121,7 @@ const StudentDashboard = () => {
 
   const fetchTimetable = async () => {
     try {
-      const response = await apiClient.get(`/api/timetable?year=${timetableForm.year}&division=${timetableForm.division}`);
+      const response = await apiClient.get(`/timetable?year=${timetableForm.year}&division=${timetableForm.division}`);
       setTimetable(response.data);
       setShowTimetableDialog(false);
     } catch (error) {

@@ -1,33 +1,47 @@
+const cluster = require('cluster');
+const os = require('os');
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const helmet = require('helmet');
+const compression = require('compression');
 const rateLimit = require('express-rate-limit');
 const logger = require('./utils/logger');
 require('dotenv').config();
 
-const app = express();
+// Cluster for production performance
+if (cluster.isMaster && process.env.NODE_ENV === 'production') {
+  const numCPUs = Math.min(os.cpus().length, 4);
+  for (let i = 0; i < numCPUs; i++) {
+    cluster.fork();
+  }
+  cluster.on('exit', (worker) => {
+    console.log(`Worker ${worker.process.pid} died`);
+    cluster.fork();
+  });
+} else {
+  const app = express();
 
-// Performance optimizations
-app.set('trust proxy', 1);
-app.use(helmet({ contentSecurityPolicy: false }));
-app.use(cors({
-  origin: function(origin, callback) {
-    // Allow all Vercel deployments and localhost
-    if (!origin || 
-        origin.includes('vercel.app') || 
-        origin.includes('localhost') || 
-        origin.includes('192.168.') ||
-        origin === process.env.FRONTEND_URL) {
-      callback(null, true);
-    } else {
-      callback(new Error('Not allowed by CORS'));
-    }
-  },
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
-}));
+  // Performance optimizations
+  app.set('trust proxy', 1);
+  app.use(compression());
+  app.use(helmet({ contentSecurityPolicy: false }));
+  app.use(cors({
+    origin: function(origin, callback) {
+      if (!origin || 
+          origin.includes('vercel.app') || 
+          origin.includes('localhost') || 
+          origin.includes('192.168.') ||
+          origin === process.env.FRONTEND_URL) {
+        callback(null, true);
+      } else {
+        callback(new Error('Not allowed by CORS'));
+      }
+    },
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+  }));
 
 // Optimized rate limiting
 const limiter = rateLimit({
@@ -93,28 +107,31 @@ app.use('*', (req, res) => {
   res.status(404).json({ message: 'Route not found' });
 });
 
-// Optimized MongoDB connection
-const connectDB = async () => {
-  try {
-    await mongoose.connect(process.env.MONGODB_URI, {
-      maxPoolSize: 20,
-      serverSelectionTimeoutMS: 5000,
-      socketTimeoutMS: 45000,
-      bufferCommands: false
-    });
-    logger.info('MongoDB connected successfully');
-  } catch (err) {
-    logger.error('MongoDB connection error', { error: err.message });
-    setTimeout(connectDB, 5000);
-  }
-};
+  // Optimized MongoDB connection
+  const connectDB = async () => {
+    try {
+      await mongoose.connect(process.env.MONGODB_URI, {
+        maxPoolSize: 30,
+        minPoolSize: 5,
+        serverSelectionTimeoutMS: 3000,
+        socketTimeoutMS: 30000,
+        bufferCommands: false,
+        bufferMaxEntries: 0
+      });
+      logger.info('MongoDB connected successfully');
+    } catch (err) {
+      logger.error('MongoDB connection error', { error: err.message });
+      setTimeout(connectDB, 3000);
+    }
+  };
 
-connectDB();
+  connectDB();
 
-const PORT = process.env.PORT || 5000;
-const server = app.listen(PORT, '0.0.0.0', () => {
-  logger.info(`Server running on port ${PORT}`);
-});
+  const PORT = process.env.PORT || 5000;
+  const server = app.listen(PORT, '0.0.0.0', () => {
+    logger.info(`Worker ${process.pid} running on port ${PORT}`);
+  });
 
-server.keepAliveTimeout = 65000;
-server.headersTimeout = 66000;
+  server.keepAliveTimeout = 65000;
+  server.headersTimeout = 66000;
+}

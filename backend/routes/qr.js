@@ -53,28 +53,35 @@ router.post('/validate', auth, authorize('student'), async (req, res) => {
   try {
     const { qrCodeId, latitude, longitude } = req.body;
 
-    if (!qrCodeId || !latitude || !longitude) {
-      return res.status(400).json({ message: 'QR code ID and location are required' });
+    if (!qrCodeId) {
+      return res.status(400).json({ message: 'QR code ID is required' });
     }
 
-    const qrCode = await QRCodeModel.findById(qrCodeId).populate('teacher', 'name');
+    const qrCode = await QRCodeModel.findById(qrCodeId).populate('teacher', 'name').lean();
 
     if (!qrCode || !qrCode.isActive) {
       return res.status(400).json({ message: 'Invalid or expired QR code' });
     }
 
     if (new Date() > qrCode.expiresAt) {
+      await QRCodeModel.findByIdAndUpdate(qrCodeId, { isActive: false });
       return res.status(400).json({ message: 'QR code has expired' });
     }
 
-    // Calculate distance between student and QR code location
-    
-
-    // if (distance > qrCode.location.radius) {
-    //   return res.status(400).json({ 
-    //     message: 'You are not within the required location to mark attendance' 
-    //   });
-    // }
+    // Optional location validation
+    if (latitude && longitude && qrCode.location) {
+      const distance = calculateDistance(
+        latitude, longitude,
+        qrCode.location.latitude, qrCode.location.longitude
+      );
+      
+      if (distance > (qrCode.location.radius || 100)) {
+        return res.status(400).json({ 
+          message: 'You are not within the required location to mark attendance',
+          distance: Math.round(distance)
+        });
+      }
+    }
 
     res.json({
       valid: true,
@@ -83,7 +90,7 @@ router.post('/validate', auth, authorize('student'), async (req, res) => {
       qrCodeId: qrCode._id
     });
   } catch (error) {
-    console.error(error);
+    console.error('QR validation error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 });

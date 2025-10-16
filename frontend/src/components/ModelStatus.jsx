@@ -1,74 +1,60 @@
 import React, { useState, useEffect } from 'react';
-import { Alert, Button, Dialog, DialogTitle, DialogContent, Typography, List, ListItem, ListItemText } from '@mui/material';
-import { checkModelsAvailability, getModelDownloadInstructions } from '../utils/modelChecker';
+import { Box, Typography, Chip, Alert } from '@mui/material';
+import { preloadModels } from '../utils/faceRecognition';
 
 const ModelStatus = () => {
-  const [modelsAvailable, setModelsAvailable] = useState(true);
-  const [showInstructions, setShowInstructions] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [status, setStatus] = useState('loading');
+  const [error, setError] = useState('');
 
   useEffect(() => {
-    checkModels();
+    checkModelStatus();
   }, []);
 
-  const checkModels = async () => {
+  const checkModelStatus = async () => {
     try {
-      const { allAvailable } = await checkModelsAvailability();
-      setModelsAvailable(allAvailable);
-    } catch (error) {
-      setModelsAvailable(false);
-    } finally {
-      setLoading(false);
+      const loaded = await preloadModels();
+      setStatus(loaded ? 'ready' : 'failed');
+      if (!loaded) {
+        setError('Face recognition models could not be loaded');
+      }
+    } catch (err) {
+      setStatus('failed');
+      setError(err.message || 'Model loading failed');
     }
   };
 
-  if (loading || modelsAvailable) {
-    return null;
-  }
+  const getStatusColor = () => {
+    switch (status) {
+      case 'ready': return 'success';
+      case 'failed': return 'error';
+      default: return 'warning';
+    }
+  };
 
-  const instructions = getModelDownloadInstructions();
+  const getStatusText = () => {
+    switch (status) {
+      case 'ready': return '✅ Face Recognition Ready';
+      case 'failed': return '❌ Face Recognition Unavailable';
+      default: return '⏳ Loading Face Recognition...';
+    }
+  };
 
   return (
-    <>
-      <Alert 
-        severity="warning" 
-        sx={{ mb: 2 }}
-        action={
-          <Button 
-            color="inherit" 
-            size="small" 
-            onClick={() => setShowInstructions(true)}
-          >
-            Instructions
-          </Button>
-        }
-      >
-        Face recognition models not found. Face verification will not work.
-      </Alert>
-
-      <Dialog open={showInstructions} onClose={() => setShowInstructions(false)} maxWidth="md">
-        <DialogTitle>Face Recognition Model Setup</DialogTitle>
-        <DialogContent>
-          <Typography variant="body1" gutterBottom>
-            {instructions.message}
+    <Box sx={{ mb: 2 }}>
+      <Chip 
+        label={getStatusText()}
+        color={getStatusColor()}
+        size="small"
+        sx={{ mb: 1 }}
+      />
+      {status === 'failed' && error && (
+        <Alert severity="warning" sx={{ borderRadius: 2 }}>
+          <Typography variant="body2">
+            {error}. You can still mark attendance without face verification.
           </Typography>
-          <List>
-            {instructions.instructions.map((instruction, index) => (
-              <ListItem key={index}>
-                <ListItemText primary={instruction} />
-              </ListItem>
-            ))}
-          </List>
-          <Button 
-            variant="contained" 
-            onClick={checkModels}
-            sx={{ mt: 2 }}
-          >
-            Check Again
-          </Button>
-        </DialogContent>
-      </Dialog>
-    </>
+        </Alert>
+      )}
+    </Box>
   );
 };
 

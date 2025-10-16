@@ -1,9 +1,15 @@
 export const getCurrentLocation = () => {
   return new Promise((resolve, reject) => {
     if (!navigator.geolocation) {
-      reject(new Error('Geolocation is not supported by this browser'));
+      reject(new Error('Geolocation not supported'));
       return;
     }
+
+    const options = {
+      enableHighAccuracy: true,
+      timeout: 10000,
+      maximumAge: 300000 // 5 minutes cache
+    };
 
     navigator.geolocation.getCurrentPosition(
       (position) => {
@@ -14,7 +20,7 @@ export const getCurrentLocation = () => {
         });
       },
       (error) => {
-        let message = 'Unable to retrieve location';
+        let message = 'Location access denied';
         switch (error.code) {
           case error.PERMISSION_DENIED:
             message = 'Location access denied by user';
@@ -28,11 +34,7 @@ export const getCurrentLocation = () => {
         }
         reject(new Error(message));
       },
-      {
-        enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 60000
-      }
+      options
     );
   });
 };
