@@ -21,9 +21,9 @@ const userSchema = new mongoose.Schema({
   timestamps: true
 });
 
-// Compound indexes
-userSchema.index({ role: 1, department: 1 });
-userSchema.index({ role: 1, isActive: 1 });
+// Optimized compound indexes
+userSchema.index({ role: 1, isActive: 1, department: 1 });
+userSchema.index({ email: 1, isActive: 1 });
 
 userSchema.pre('save', async function(next) {
   try {

@@ -18,10 +18,10 @@ const attendanceSchema = new mongoose.Schema({
   timestamps: true
 });
 
-// Compound indexes for better query performance
+// Optimized indexes
+attendanceSchema.index({ student: 1, date: -1 });
+attendanceSchema.index({ teacher: 1, subject: 1, date: -1 });
+attendanceSchema.index({ date: -1, status: 1 });
 attendanceSchema.index({ student: 1, date: 1, subject: 1 }, { unique: true });
-attendanceSchema.index({ teacher: 1, subject: 1, date: 1 });
-attendanceSchema.index({ date: 1, status: 1 });
-attendanceSchema.index({ qrCodeId: 1 }, { sparse: true });
 
 module.exports = mongoose.model('Attendance', attendanceSchema);

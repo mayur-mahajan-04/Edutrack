@@ -4,31 +4,41 @@ const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const logger = require('./utils/logger');
-const { performanceMonitor } = require('./utils/performance');
 require('dotenv').config();
 
 const app = express();
 
-// Security middleware
-app.use(helmet());
-app.use(cors());
+// Performance optimizations
+app.set('trust proxy', 1);
+app.use(helmet({ contentSecurityPolicy: false }));
+app.use(cors({
+  origin: [process.env.FRONTEND_URL, 'http://192.168.185.166:3001', 'http://localhost:3001'],
+  credentials: true,
+  maxAge: 86400
+}));
 
-// Rate limiting - more lenient for development
+// Optimized rate limiting
 const limiter = rateLimit({
-  windowMs: 1 * 60 * 1000, // 1 minute
-  max: 1000, // increased limit for development
-  skip: (req) => {
-    // Skip rate limiting for static assets and development
-    return req.url.includes('.') || process.env.NODE_ENV === 'development';
-  }
+  windowMs: 60 * 1000,
+  max: 500,
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: (req) => process.env.NODE_ENV === 'development'
 });
-app.use(limiter);
+app.use('/api', limiter);
 
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+app.use(express.json({ limit: '5mb' }));
+app.use(express.urlencoded({ extended: true, limit: '5mb' }));
 
-// Performance monitoring
-app.use(performanceMonitor);
+// Simple performance monitoring
+app.use((req, res, next) => {
+  const start = Date.now();
+  res.on('finish', () => {
+    const duration = Date.now() - start;
+    if (duration > 1000) console.log(`Slow: ${req.method} ${req.originalUrl} - ${duration}ms`);
+  });
+  next();
+});
 
 // Routes
 app.use('/api/auth', require('./routes/auth'));
@@ -57,20 +67,28 @@ app.use('*', (req, res) => {
   res.status(404).json({ message: 'Route not found' });
 });
 
-// Database connection with retry logic
+// Optimized MongoDB connection
 const connectDB = async () => {
   try {
-    await mongoose.connect(process.env.MONGODB_URI);
+    await mongoose.connect(process.env.MONGODB_URI, {
+      maxPoolSize: 20,
+      serverSelectionTimeoutMS: 5000,
+      socketTimeoutMS: 45000,
+      bufferCommands: false
+    });
     logger.info('MongoDB connected successfully');
   } catch (err) {
     logger.error('MongoDB connection error', { error: err.message });
-    process.exit(1);
+    setTimeout(connectDB, 5000);
   }
 };
 
 connectDB();
 
-const PORT = process.env.PORT || 5002;
-app.listen(PORT, () => {
-  logger.info(`Server running on port ${PORT}`, { environment: process.env.NODE_ENV });
+const PORT = process.env.PORT || 5000;
+const server = app.listen(PORT, '0.0.0.0', () => {
+  logger.info(`Server running on port ${PORT}`);
 });
+
+server.keepAliveTimeout = 65000;
+server.headersTimeout = 66000;
