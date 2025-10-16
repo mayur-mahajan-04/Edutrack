@@ -2,6 +2,9 @@
   "name": "attendance-backend",
   "version": "1.0.0",
   "description": "Backend for Smart Attendance System",
+  "license": "ISC",
+  "author": "",
+  "type": "commonjs",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
