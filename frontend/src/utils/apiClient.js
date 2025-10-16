@@ -6,7 +6,7 @@ const CACHE_TIME = 300000; // 5 minutes
 
 // Production-ready axios instance
 const apiClient = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'https://your-render-backend-url.onrender.com/api',
+  baseURL: import.meta.env.VITE_API_URL || 'https://edutrack-si4v.onrender.com/api',
   timeout: 30000,
   headers: { 'Content-Type': 'application/json' },
   withCredentials: true
