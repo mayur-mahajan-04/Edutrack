@@ -13,10 +13,14 @@ const app = express();
 app.use(helmet());
 app.use(cors());
 
-// Rate limiting
+// Rate limiting - more lenient for development
 const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100 // limit each IP to 100 requests per windowMs
+  windowMs: 1 * 60 * 1000, // 1 minute
+  max: 1000, // increased limit for development
+  skip: (req) => {
+    // Skip rate limiting for static assets and development
+    return req.url.includes('.') || process.env.NODE_ENV === 'development';
+  }
 });
 app.use(limiter);
 
