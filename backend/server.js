@@ -111,17 +111,15 @@ app.use('*', (req, res) => {
   const connectDB = async () => {
     try {
       await mongoose.connect(process.env.MONGODB_URI, {
-        maxPoolSize: 30,
-        minPoolSize: 5,
-        serverSelectionTimeoutMS: 3000,
-        socketTimeoutMS: 30000,
-        bufferCommands: false,
-        bufferMaxEntries: 0
+        maxPoolSize: 20,
+        minPoolSize: 2,
+        serverSelectionTimeoutMS: 5000,
+        socketTimeoutMS: 45000
       });
       logger.info('MongoDB connected successfully');
     } catch (err) {
       logger.error('MongoDB connection error', { error: err.message });
-      setTimeout(connectDB, 3000);
+      setTimeout(connectDB, 5000);
     }
   };
 
