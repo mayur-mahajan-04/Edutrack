@@ -72,6 +72,8 @@ const StudentDashboard = () => {
     semester: ''
   });
   const [updateLoading, setUpdateLoading] = useState(false);
+  const [cameraSupported, setCameraSupported] = useState(true);
+  const [permissionStatus, setPermissionStatus] = useState('checking');
   const { user, loadUser } = useAuth();
   const navigate = useNavigate();
 
@@ -719,40 +721,203 @@ const StudentDashboard = () => {
     </Box>
   );
 
-  const MarkAttendance = () => (
-    <Container maxWidth="md" sx={{ mt: 4, mb: 4 }}>
-      <Typography variant="h4" gutterBottom>Mark Attendance</Typography>
-      
-      <ModelStatus />
-      
-      <FaceRegistrationCheck 
-        user={user} 
-        onRegisterFace={() => setShowFaceRegistration(true)} 
-      />
-      
-      {loading && <Alert severity="info" sx={{ mb: 2 }}>Validating QR code...</Alert>}
-      <Paper sx={{ p: 2 }}>
-        <QRScanner onScan={handleQRScan} onError={(error) => toast.error(error)} />
-      </Paper>
-      
-      <Dialog open={showFaceVerification} onClose={() => setShowFaceVerification(false)}>
-        <DialogTitle>Face Verification</DialogTitle>
-        <DialogContent>
-          <FaceVerification userFaceDescriptor={user?.faceDescriptor} onVerificationComplete={handleFaceVerification} />
-        </DialogContent>
-      </Dialog>
-      
-      <Dialog open={showFaceRegistration} onClose={() => setShowFaceRegistration(false)}>
-        <DialogTitle>Face Registration Required</DialogTitle>
-        <DialogContent>
-          <Typography variant="body2" sx={{ mb: 2 }}>
-            You need to register your face before marking attendance.
-          </Typography>
-          <FaceCapture onCapture={handleFaceReRegistration} />
-        </DialogContent>
-      </Dialog>
-    </Container>
-  );
+  const MarkAttendance = () => {
+    const [cameraSupported, setCameraSupported] = useState(true);
+    const [permissionStatus, setPermissionStatus] = useState('checking');
+
+    useEffect(() => {
+      // Check camera support and permissions
+      const checkCameraSupport = async () => {
+        try {
+          if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            setCameraSupported(false);
+            setPermissionStatus('unsupported');
+            return;
+          }
+
+          // Check if we can access camera
+          const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+          stream.getTracks().forEach(track => track.stop());
+          setPermissionStatus('granted');
+        } catch (err) {
+          console.error('Camera check error:', err);
+          if (err.name === 'NotAllowedError') {
+            setPermissionStatus('denied');
+          } else if (err.name === 'NotFoundError') {
+            setPermissionStatus('no-camera');
+          } else {
+            setPermissionStatus('error');
+          }
+        }
+      };
+
+      checkCameraSupport();
+    }, []);
+
+    return (
+      <Box sx={{ bgcolor: '#f8fafc', minHeight: '100vh', py: 4 }}>
+        <Container maxWidth="md">
+          <Box sx={{ textAlign: 'center', mb: 4 }}>
+            <Typography variant="h4" sx={{ color: '#60b5ff', fontWeight: 'bold', mb: 1 }}>
+              📱 Mark Attendance
+            </Typography>
+            <Typography variant="body1" color="textSecondary">
+              Scan QR code to mark your attendance
+            </Typography>
+          </Box>
+          
+          <ModelStatus />
+          
+          <FaceRegistrationCheck 
+            user={user} 
+            onRegisterFace={() => setShowFaceRegistration(true)} 
+          />
+
+          {/* Camera Status Check */}
+          {!cameraSupported && (
+            <Alert severity="error" sx={{ mb: 2, borderRadius: 2 }}>
+              📷 Camera not supported on this device. Please use a device with camera support.
+            </Alert>
+          )}
+
+          {permissionStatus === 'denied' && (
+            <Alert severity="warning" sx={{ mb: 2, borderRadius: 2 }}>
+              🚫 Camera permission denied. Please allow camera access in your browser settings and refresh the page.
+            </Alert>
+          )}
+
+          {permissionStatus === 'no-camera' && (
+            <Alert severity="error" sx={{ mb: 2, borderRadius: 2 }}>
+              📷 No camera found on this device. Please use a device with a camera.
+            </Alert>
+          )}
+          
+          {loading && (
+            <Alert severity="info" sx={{ mb: 2, borderRadius: 2 }}>
+              ⏳ Validating QR code...
+            </Alert>
+          )}
+
+          {/* QR Scanner */}
+          <Paper sx={{ 
+            p: 3, 
+            borderRadius: 3, 
+            boxShadow: '0 4px 20px rgba(96, 181, 255, 0.15)',
+            mb: 3
+          }}>
+            {cameraSupported && permissionStatus !== 'no-camera' ? (
+              <QRScanner 
+                onScan={handleQRScan} 
+                onError={(error) => {
+                  console.error('QR Scanner Error:', error);
+                  toast.error(error);
+                }} 
+              />
+            ) : (
+              <Box sx={{ textAlign: 'center', py: 4 }}>
+                <Typography variant="h6" color="textSecondary" sx={{ mb: 2 }}>
+                  📷 Camera Required
+                </Typography>
+                <Typography variant="body2" color="textSecondary">
+                  QR code scanning requires camera access. Please ensure your device has a camera and grant permission.
+                </Typography>
+              </Box>
+            )}
+          </Paper>
+
+          {/* Instructions */}
+          <Paper sx={{ 
+            p: 3, 
+            borderRadius: 3, 
+            bgcolor: '#f0f8ff',
+            border: '1px solid #e3f2fd'
+          }}>
+            <Typography variant="h6" sx={{ color: '#60b5ff', fontWeight: 'bold', mb: 2 }}>
+              📝 Instructions
+            </Typography>
+            <Box sx={{ textAlign: 'left' }}>
+              <Typography variant="body2" sx={{ mb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: '#4caf50' }} />
+                Ask your teacher to generate a QR code for the class
+              </Typography>
+              <Typography variant="body2" sx={{ mb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: '#4caf50' }} />
+                Point your back camera at the QR code displayed by teacher
+              </Typography>
+              <Typography variant="body2" sx={{ mb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: '#4caf50' }} />
+                After QR scan, complete face verification (if enabled)
+              </Typography>
+              <Typography variant="body2" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: '#4caf50' }} />
+                Your attendance will be marked automatically
+              </Typography>
+            </Box>
+          </Paper>
+          
+          {/* Face Verification Dialog */}
+          <Dialog 
+            open={showFaceVerification} 
+            onClose={() => setShowFaceVerification(false)}
+            maxWidth="sm"
+            fullWidth
+          >
+            <DialogTitle sx={{ textAlign: 'center', color: '#60b5ff' }}>
+              👤 Face Verification
+            </DialogTitle>
+            <DialogContent>
+              <Typography variant="body2" sx={{ mb: 2, textAlign: 'center' }}>
+                Please look at the front camera for face verification
+              </Typography>
+              <FaceVerification 
+                userFaceDescriptor={user?.faceDescriptor} 
+                onVerificationComplete={handleFaceVerification} 
+              />
+            </DialogContent>
+          </Dialog>
+          
+          {/* Face Registration Dialog */}
+          <Dialog 
+            open={showFaceRegistration} 
+            onClose={() => setShowFaceRegistration(false)}
+            maxWidth="sm"
+            fullWidth
+          >
+            <DialogTitle sx={{ textAlign: 'center', color: '#60b5ff' }}>
+              👤 Face Registration Required
+            </DialogTitle>
+            <DialogContent>
+              <Typography variant="body2" sx={{ mb: 2, textAlign: 'center' }}>
+                You need to register your face before marking attendance.
+              </Typography>
+              <FaceCapture onCapture={handleFaceReRegistration} />
+            </DialogContent>
+          </Dialog>
+
+          {/* Back Button */}
+          <Box sx={{ textAlign: 'center', mt: 4 }}>
+            <Button 
+              variant="outlined"
+              onClick={() => navigate('/student')}
+              sx={{ 
+                borderColor: '#60b5ff', 
+                color: '#60b5ff',
+                px: 4,
+                py: 1.5,
+                borderRadius: 2,
+                '&:hover': { 
+                  bgcolor: 'rgba(96, 181, 255, 0.1)',
+                  borderColor: '#4a9eff'
+                }
+              }}
+            >
+              ← Back to Dashboard
+            </Button>
+          </Box>
+        </Container>
+      </Box>
+    );
+  };
 
   const UpdateProfile = () => (
     <Box sx={{ bgcolor: '#f8fafc', minHeight: '100vh', py: 4 }}>
