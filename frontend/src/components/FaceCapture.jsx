@@ -104,6 +104,9 @@ const FaceCapture = ({ onCapture, onError }) => {
           width={320}
           height={240}
           screenshotFormat="image/jpeg"
+          videoConstraints={{
+            facingMode: 'user' // Use front camera for face recognition
+          }}
           style={{ 
             border: '2px solid #60b5ff', 
             borderRadius: '8px',

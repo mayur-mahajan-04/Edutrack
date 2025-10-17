@@ -80,6 +80,9 @@ const FaceVerification = ({ userFaceDescriptor, onVerificationComplete }) => {
           width={320}
           height={240}
           screenshotFormat="image/jpeg"
+          videoConstraints={{
+            facingMode: 'user' // Use front camera for face verification
+          }}
           style={{ 
             border: '2px solid #60b5ff', 
             borderRadius: '8px'

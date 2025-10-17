@@ -27,7 +27,8 @@ const QRScanner = ({ onScan, onError }) => {
         aspectRatio: 1.0,
         showTorchButtonIfSupported: true,
         showZoomSliderIfSupported: true,
-        defaultZoomValueIfSupported: 2
+        defaultZoomValueIfSupported: 2,
+        facingMode: 'environment' // Use back camera for QR scanning
       },
       false
     );
