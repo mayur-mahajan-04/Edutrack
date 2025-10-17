@@ -50,60 +50,63 @@ const QRScanner = ({ onScan, onError }) => {
     setIsScanning(true);
     setIsInitializing(false);
 
-    try {
-      const qrScanner = new Html5QrcodeScanner(
-        'qr-reader',
-        { 
-          fps: 10,
-          qrbox: { width: 250, height: 250 },
-          aspectRatio: 1.0,
-          showTorchButtonIfSupported: true,
-          showZoomSliderIfSupported: false,
-          facingMode: 'environment', // Use back camera for QR scanning
-          rememberLastUsedCamera: true
-        },
-        false
-      );
+    // Wait for DOM element to be rendered
+    setTimeout(() => {
+      try {
+        const qrScanner = new Html5QrcodeScanner(
+          'qr-reader',
+          { 
+            fps: 10,
+            qrbox: { width: 250, height: 250 },
+            aspectRatio: 1.0,
+            showTorchButtonIfSupported: true,
+            showZoomSliderIfSupported: false,
+            facingMode: 'environment', // Use back camera for QR scanning
+            rememberLastUsedCamera: true
+          },
+          false
+        );
 
-      qrScanner.render(
-        (decodedText) => {
-          try {
-            const qrData = JSON.parse(decodedText);
-            if (qrData.id && qrData.data) {
-              qrScanner.clear().then(() => {
-                setIsScanning(false);
-                onScan(qrData);
-              }).catch(console.error);
-            } else {
-              throw new Error('Invalid QR format');
+        qrScanner.render(
+          (decodedText) => {
+            try {
+              const qrData = JSON.parse(decodedText);
+              if (qrData.id && qrData.data) {
+                qrScanner.clear().then(() => {
+                  setIsScanning(false);
+                  onScan(qrData);
+                }).catch(console.error);
+              } else {
+                throw new Error('Invalid QR format');
+              }
+            } catch (err) {
+              setError('Invalid QR code format. Please scan a valid attendance QR code.');
+              onError?.('Invalid QR code format');
             }
-          } catch (err) {
-            setError('Invalid QR code format. Please scan a valid attendance QR code.');
-            onError?.('Invalid QR code format');
+          },
+          (errorMessage) => {
+            // Only show relevant errors
+            if (errorMessage.includes('NotAllowedError')) {
+              setError('Camera access denied. Please allow camera permission.');
+            } else if (errorMessage.includes('NotFoundError')) {
+              setError('No camera found. Please check your device.');
+            }
+            // Ignore NotFoundException (no QR code found)
           }
-        },
-        (errorMessage) => {
-          // Only show relevant errors
-          if (errorMessage.includes('NotAllowedError')) {
-            setError('Camera access denied. Please allow camera permission.');
-          } else if (errorMessage.includes('NotFoundError')) {
-            setError('No camera found. Please check your device.');
-          }
-          // Ignore NotFoundException (no QR code found)
-        }
-      ).catch((err) => {
-        console.error('Scanner initialization error:', err);
-        setError('Failed to initialize camera. Please refresh and try again.');
-        setIsScanning(false);
-      });
+        ).catch((err) => {
+          console.error('Scanner initialization error:', err);
+          setError('Failed to initialize camera. Please refresh and try again.');
+          setIsScanning(false);
+        });
 
-      setScanner(qrScanner);
-    } catch (err) {
-      console.error('QR Scanner error:', err);
-      setError('Failed to start QR scanner. Please try again.');
-      setIsScanning(false);
-      setIsInitializing(false);
-    }
+        setScanner(qrScanner);
+      } catch (err) {
+        console.error('QR Scanner error:', err);
+        setError('Failed to start QR scanner. Please try again.');
+        setIsScanning(false);
+        setIsInitializing(false);
+      }
+    }, 100); // Wait 100ms for DOM to update
   };
 
   const stopScanning = () => {
