@@ -10,12 +10,14 @@ const QRScanner = ({ onScan, onError }) => {
   const [isInitializing, setIsInitializing] = useState(false);
 
   useEffect(() => {
-    // Auto-start scanning when component mounts
-    startScanning();
-    
+    // Don't auto-start, let user click the button
     return () => {
       if (scanner) {
-        scanner.clear().catch(console.error);
+        try {
+          scanner.clear();
+        } catch (e) {
+          console.error('Error clearing scanner:', e);
+        }
       }
     };
   }, []);
@@ -50,8 +52,17 @@ const QRScanner = ({ onScan, onError }) => {
     setIsScanning(true);
     setIsInitializing(false);
 
-    // Wait for DOM element to be rendered
+    // Wait for DOM element to be rendered and check if it exists
     setTimeout(() => {
+      const element = document.getElementById('qr-reader');
+      if (!element) {
+        console.error('QR reader element not found');
+        setError('Scanner initialization failed. Please try again.');
+        setIsScanning(false);
+        setIsInitializing(false);
+        return;
+      }
+
       try {
         const qrScanner = new Html5QrcodeScanner(
           'qr-reader',
@@ -96,11 +107,16 @@ const QRScanner = ({ onScan, onError }) => {
             }
             // Ignore NotFoundException (no QR code found)
           }
-        ).catch((err) => {
-          console.error('Scanner initialization error:', err);
-          setError('Failed to initialize camera. Please refresh and try again.');
-          setIsScanning(false);
-        });
+        );
+
+        // Handle render promise if it exists
+        if (qrScanner.render && typeof qrScanner.render.catch === 'function') {
+          qrScanner.render.catch((err) => {
+            console.error('Scanner initialization error:', err);
+            setError('Failed to initialize camera. Please refresh and try again.');
+            setIsScanning(false);
+          });
+        }
 
         setScanner(qrScanner);
       } catch (err) {
@@ -109,7 +125,7 @@ const QRScanner = ({ onScan, onError }) => {
         setIsScanning(false);
         setIsInitializing(false);
       }
-    }, 100); // Wait 100ms for DOM to update
+    }, 200); // Wait 200ms for DOM to update
   };
 
   const stopScanning = () => {
