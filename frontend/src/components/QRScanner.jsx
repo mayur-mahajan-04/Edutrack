@@ -72,10 +72,13 @@ const QRScanner = ({ onScan, onError }) => {
             try {
               const qrData = JSON.parse(decodedText);
               if (qrData.id && qrData.data) {
-                qrScanner.clear().then(() => {
-                  setIsScanning(false);
-                  onScan(qrData);
-                }).catch(console.error);
+                try {
+                  qrScanner.clear();
+                } catch (e) {
+                  console.error('Error clearing scanner:', e);
+                }
+                setIsScanning(false);
+                onScan(qrData);
               } else {
                 throw new Error('Invalid QR format');
               }
@@ -111,10 +114,13 @@ const QRScanner = ({ onScan, onError }) => {
 
   const stopScanning = () => {
     if (scanner) {
-      scanner.clear().then(() => {
-        setIsScanning(false);
-        setScanner(null);
-      }).catch(console.error);
+      try {
+        scanner.clear();
+      } catch (e) {
+        console.error('Error clearing scanner:', e);
+      }
+      setIsScanning(false);
+      setScanner(null);
     }
   };
 
