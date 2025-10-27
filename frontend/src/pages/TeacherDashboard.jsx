@@ -47,10 +47,11 @@ import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, PieChart, Pie, Cell }
 import apiClient from '../utils/apiClient';
 import { toast } from 'react-toastify';
 import FaceCapture from '../components/FaceCapture';
-import { getCurrentLocation } from '../utils/geolocation';
+import { getCurrentLocation, getHighAccuracyLocation } from '../utils/geolocation';
 import { useAuth } from '../context/AuthContext';
 import Timetable from '../components/Timetable';
 import SendNotification from '../components/SendNotification';
+import LocationAccuracy from '../components/LocationAccuracy';
 
 const TeacherDashboard = () => {
   const [qrCode, setQrCode] = useState(null);
@@ -94,7 +95,9 @@ const TeacherDashboard = () => {
 
   const generateQRCode = async () => {
     try {
-      const location = await getCurrentLocation();
+      const location = await getHighAccuracyLocation();
+      console.log('Teacher location for QR generation:', location);
+      
       const response = await apiClient.post('/api/qr/generate', {
         subject: qrForm.subject,
         duration: qrForm.duration,
@@ -733,7 +736,9 @@ const TeacherDashboard = () => {
     const handleGenerateQR = async () => {
       setLoading(true);
       try {
-        const location = await getCurrentLocation();
+        const location = await getHighAccuracyLocation();
+        console.log('Teacher location for detailed QR generation:', location);
+        
         const response = await apiClient.post('/api/qr/generate', {
           ...qrForm,
           latitude: location.latitude,
@@ -976,7 +981,7 @@ const TeacherDashboard = () => {
                     value={qrForm.duration}
                     onChange={(e) => setQrForm({...qrForm, duration: parseInt(e.target.value)})}
                     inputProps={{ min: 1, max: 60 }}
-                    helperText="QR code will expire after this duration. Students must be within 20 meters of your location to mark attendance."
+                    helperText="QR code will expire after this duration. Students must be within 20 meters of your precise location to mark attendance."
                     sx={{
                       '& .MuiOutlinedInput-root': {
                         '&:hover fieldset': { borderColor: '#60b5ff' },
@@ -988,6 +993,8 @@ const TeacherDashboard = () => {
                 </Grid>
               </Grid>
 
+              <LocationAccuracy showDetails={true} />
+              
               <Box sx={{ mt: 4, display: 'flex', gap: 2, justifyContent: 'center' }}>
                 <Button 
                   variant="contained" 

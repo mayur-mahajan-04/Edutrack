@@ -49,7 +49,8 @@ import FaceRegistrationCheck from '../components/FaceRegistrationCheck';
 import ModelStatus from '../components/ModelStatus';
 import SimpleTimetable from '../components/SimpleTimetable';
 import StudentNotifications from '../components/StudentNotifications';
-import { getCurrentLocation } from '../utils/geolocation';
+import LocationAccuracy from '../components/LocationAccuracy';
+import { getCurrentLocation, getHighAccuracyLocation } from '../utils/geolocation';
 import { useAuth } from '../context/AuthContext';
 
 const StudentDashboard = () => {
@@ -146,7 +147,9 @@ const StudentDashboard = () => {
   const handleQRScan = async (scannedQrData) => {
     setLoading(true);
     try {
-      const currentLocation = await getCurrentLocation();
+      const currentLocation = await getHighAccuracyLocation();
+      console.log('Student location for QR validation:', currentLocation);
+      
       const validateResponse = await apiClient.post('/api/qr/validate', {
         qrCodeId: scannedQrData.id,
         latitude: currentLocation.latitude,
@@ -188,10 +191,14 @@ const StudentDashboard = () => {
     }
 
     try {
+      // Get fresh high-accuracy location for attendance marking
+      const freshLocation = await getHighAccuracyLocation();
+      console.log('Student location for attendance marking:', freshLocation);
+      
       await apiClient.post('/api/attendance/mark', {
         qrCodeId: qrData.id,
-        latitude: location.latitude,
-        longitude: location.longitude,
+        latitude: freshLocation.latitude,
+        longitude: freshLocation.longitude,
         faceVerified: true
       });
       toast.success('✅ Attendance marked successfully!');
@@ -782,6 +789,8 @@ const StudentDashboard = () => {
           
           <ModelStatus />
           
+          <LocationAccuracy showDetails={true} />
+          
           <FaceRegistrationCheck 
             user={user} 
             onRegisterFace={() => setShowFaceRegistration(true)} 
@@ -808,7 +817,7 @@ const StudentDashboard = () => {
           
           {loading && (
             <Alert severity="info" sx={{ mb: 2, borderRadius: 2 }}>
-              ⏳ Validating QR code and checking location...
+              ⏳ Getting precise location and validating QR code...
             </Alert>
           )}
 
