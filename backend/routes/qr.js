@@ -9,7 +9,7 @@ const router = express.Router();
 // Generate QR Code (Teachers only)
 router.post('/generate', auth, authorize('teacher'), async (req, res) => {
   try {
-    const { subject, duration = 10, latitude, longitude, radius = 100 } = req.body;
+    const { subject, duration = 10, latitude, longitude, radius = 20 } = req.body;
 
     if (!subject || !latitude || !longitude) {
       return res.status(400).json({ message: 'Subject and location are required' });
@@ -75,7 +75,7 @@ router.post('/validate', auth, authorize('student'), async (req, res) => {
         qrCode.location.latitude, qrCode.location.longitude
       );
       
-      if (distance > (qrCode.location.radius || 100)) {
+      if (distance > (qrCode.location.radius || 20)) {
         return res.status(400).json({ 
           message: 'You are not within the required location to mark attendance',
           distance: Math.round(distance)

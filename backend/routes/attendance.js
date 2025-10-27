@@ -6,6 +6,22 @@ const { auth, authorize } = require('../middleware/auth');
 
 const router = express.Router();
 
+// Calculate distance between two coordinates using Haversine formula
+const calculateDistance = (lat1, lon1, lat2, lon2) => {
+  const R = 6371e3; // Earth's radius in meters
+  const φ1 = lat1 * Math.PI/180;
+  const φ2 = lat2 * Math.PI/180;
+  const Δφ = (lat2-lat1) * Math.PI/180;
+  const Δλ = (lon2-lon1) * Math.PI/180;
+
+  const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
+          Math.cos(φ1) * Math.cos(φ2) *
+          Math.sin(Δλ/2) * Math.sin(Δλ/2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+
+  return R * c; // Distance in meters
+};
+
 // Mark attendance via QR code
 router.post('/mark', auth, authorize('student'), async (req, res) => {
   try {
@@ -13,6 +29,10 @@ router.post('/mark', auth, authorize('student'), async (req, res) => {
 
     if (!qrCodeId) {
       return res.status(400).json({ message: 'QR code ID is required' });
+    }
+
+    if (!latitude || !longitude) {
+      return res.status(400).json({ message: 'Location is required for attendance marking' });
     }
 
     const qrCode = await QRCodeModel.findById(qrCodeId).populate('teacher', 'name').lean();
@@ -23,6 +43,26 @@ router.post('/mark', auth, authorize('student'), async (req, res) => {
     if (new Date() > qrCode.expiresAt) {
       await QRCodeModel.findByIdAndUpdate(qrCodeId, { isActive: false });
       return res.status(400).json({ message: 'QR code has expired' });
+    }
+
+    // Validate location - student must be within 20 meters of QR code location
+    if (qrCode.location && qrCode.location.latitude && qrCode.location.longitude) {
+      const distance = calculateDistance(
+        latitude,
+        longitude,
+        qrCode.location.latitude,
+        qrCode.location.longitude
+      );
+      
+      const allowedRadius = qrCode.location.radius || 20; // Default 20 meters
+      
+      if (distance > allowedRadius) {
+        return res.status(400).json({ 
+          message: `You must be within ${allowedRadius} meters of the classroom to mark attendance. You are ${Math.round(distance)} meters away.`,
+          distance: Math.round(distance),
+          allowedRadius
+        });
+      }
     }
 
     // Check duplicate attendance (optimized query)

@@ -976,7 +976,7 @@ const TeacherDashboard = () => {
                     value={qrForm.duration}
                     onChange={(e) => setQrForm({...qrForm, duration: parseInt(e.target.value)})}
                     inputProps={{ min: 1, max: 60 }}
-                    helperText="QR code will expire after this duration"
+                    helperText="QR code will expire after this duration. Students must be within 20 meters to mark attendance."
                     sx={{
                       '& .MuiOutlinedInput-root': {
                         '&:hover fieldset': { borderColor: '#60b5ff' },
@@ -1060,7 +1060,7 @@ const TeacherDashboard = () => {
                     </Box>
                     
                     <Typography variant="caption" color="textSecondary" sx={{ mt: 2, display: 'block' }}>
-                      Students can scan this code to mark attendance
+                      Students must be within 20 meters of your location to mark attendance
                     </Typography>
                   </Paper>
                 </Grid>
