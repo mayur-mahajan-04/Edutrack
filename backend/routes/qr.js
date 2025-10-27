@@ -68,17 +68,21 @@ router.post('/validate', auth, authorize('student'), async (req, res) => {
       return res.status(400).json({ message: 'QR code has expired' });
     }
 
-    // Optional location validation
-    if (latitude && longitude && qrCode.location) {
+    // Location validation (only if both student and QR have location data)
+    if (latitude && longitude && qrCode.location && qrCode.location.latitude && qrCode.location.longitude) {
       const distance = calculateDistance(
         latitude, longitude,
         qrCode.location.latitude, qrCode.location.longitude
       );
       
-      if (distance > (qrCode.location.radius || 20)) {
+      const requiredRadius = qrCode.location.radius || 20;
+      
+      if (distance > requiredRadius) {
         return res.status(400).json({ 
-          message: 'You are not within the required location to mark attendance',
-          distance: Math.round(distance)
+          message: `You are ${Math.round(distance)}m away from the class location. You must be within ${requiredRadius}m to mark attendance.`,
+          distance: Math.round(distance),
+          requiredRadius,
+          tooFar: true
         });
       }
     }

@@ -167,7 +167,14 @@ const StudentDashboard = () => {
         }
       }
     } catch (error) {
-      toast.error(error.response?.data?.message || 'Failed to validate QR code');
+      const errorData = error.response?.data;
+      if (errorData?.tooFar) {
+        toast.error(`📍 ${errorData.message}\n\nPlease move closer to the classroom and try again.`, {
+          duration: 6000
+        });
+      } else {
+        toast.error(errorData?.message || 'Failed to validate QR code');
+      }
     } finally {
       setLoading(false);
     }
@@ -187,11 +194,18 @@ const StudentDashboard = () => {
         longitude: location.longitude,
         faceVerified: true
       });
-      toast.success('Attendance marked successfully!');
+      toast.success('✅ Attendance marked successfully!');
       fetchAttendance();
       navigate('/student');
     } catch (error) {
-      toast.error(error.response?.data?.message || 'Failed to mark attendance');
+      const errorData = error.response?.data;
+      if (errorData?.distance && errorData?.allowedRadius) {
+        toast.error(`📍 ${errorData.message}\n\nPlease move closer to the classroom.`, {
+          duration: 6000
+        });
+      } else {
+        toast.error(errorData?.message || 'Failed to mark attendance');
+      }
     }
   };
 
@@ -794,7 +808,7 @@ const StudentDashboard = () => {
           
           {loading && (
             <Alert severity="info" sx={{ mb: 2, borderRadius: 2 }}>
-              ⏳ Validating QR code...
+              ⏳ Validating QR code and checking location...
             </Alert>
           )}
 
@@ -845,6 +859,10 @@ const StudentDashboard = () => {
                 Point your back camera at the QR code displayed by teacher
               </Typography>
               <Typography variant="body2" sx={{ mb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: '#ff9800' }} />
+                <strong>Be within 20 meters of the classroom location</strong>
+              </Typography>
+              <Typography variant="body2" sx={{ mb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
                 <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: '#4caf50' }} />
                 After QR scan, complete face verification (if enabled)
               </Typography>
@@ -853,6 +871,13 @@ const StudentDashboard = () => {
                 Your attendance will be marked automatically
               </Typography>
             </Box>
+            
+            {/* Location Requirements Alert */}
+            <Alert severity="info" sx={{ mt: 2, borderRadius: 2 }}>
+              <Typography variant="body2">
+                📍 <strong>Location Required:</strong> You must be physically present in or near the classroom (within 20 meters) to mark attendance. This prevents proxy attendance.
+              </Typography>
+            </Alert>
           </Paper>
           
           {/* Face Verification Dialog */}
