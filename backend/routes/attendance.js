@@ -8,6 +8,13 @@ const router = express.Router();
 
 // Calculate distance between two coordinates using Haversine formula
 const calculateDistance = (lat1, lon1, lat2, lon2) => {
+  // Validate inputs
+  if (!lat1 || !lon1 || !lat2 || !lon2 || 
+      isNaN(lat1) || isNaN(lon1) || isNaN(lat2) || isNaN(lon2)) {
+    console.error('Invalid coordinates for distance calculation:', { lat1, lon1, lat2, lon2 });
+    return Infinity; // Return large distance for invalid coordinates
+  }
+  
   const R = 6371e3; // Earth's radius in meters
   const φ1 = lat1 * Math.PI/180;
   const φ2 = lat2 * Math.PI/180;
@@ -34,6 +41,8 @@ router.post('/mark', auth, authorize('student'), async (req, res) => {
     if (!latitude || !longitude) {
       return res.status(400).json({ message: 'Location is required for attendance marking' });
     }
+    
+    console.log('Received location data:', { latitude, longitude, type: typeof latitude, type2: typeof longitude });
 
     const qrCode = await QRCodeModel.findById(qrCodeId).populate('teacher', 'name').lean();
     if (!qrCode || !qrCode.isActive) {
@@ -48,13 +57,15 @@ router.post('/mark', auth, authorize('student'), async (req, res) => {
     // Validate location - student must be within 20 meters of QR code location
     if (qrCode.location && qrCode.location.latitude && qrCode.location.longitude) {
       const distance = calculateDistance(
-        latitude,
-        longitude,
-        qrCode.location.latitude,
-        qrCode.location.longitude
+        parseFloat(latitude),
+        parseFloat(longitude),
+        parseFloat(qrCode.location.latitude),
+        parseFloat(qrCode.location.longitude)
       );
       
       const allowedRadius = qrCode.location.radius || 20; // Default 20 meters
+      
+      console.log(`Attendance location validation: Student(${latitude}, ${longitude}) vs QR(${qrCode.location.latitude}, ${qrCode.location.longitude}) = ${distance}m (limit: ${allowedRadius}m)`);
       
       if (distance > allowedRadius) {
         return res.status(400).json({ 

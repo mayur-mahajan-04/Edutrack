@@ -71,11 +71,13 @@ router.post('/validate', auth, authorize('student'), async (req, res) => {
     // Location validation (only if both student and QR have location data)
     if (latitude && longitude && qrCode.location && qrCode.location.latitude && qrCode.location.longitude) {
       const distance = calculateDistance(
-        latitude, longitude,
-        qrCode.location.latitude, qrCode.location.longitude
+        parseFloat(latitude), parseFloat(longitude),
+        parseFloat(qrCode.location.latitude), parseFloat(qrCode.location.longitude)
       );
       
       const requiredRadius = qrCode.location.radius || 20;
+      
+      console.log(`Location validation: Student(${latitude}, ${longitude}) vs QR(${qrCode.location.latitude}, ${qrCode.location.longitude}) = ${distance}m (limit: ${requiredRadius}m)`);
       
       if (distance > requiredRadius) {
         return res.status(400).json({ 
@@ -118,6 +120,13 @@ router.get('/:qrId/attendance', auth, authorize('teacher'), async (req, res) => 
 
 // Helper function to calculate distance between two coordinates
 function calculateDistance(lat1, lon1, lat2, lon2) {
+  // Validate inputs
+  if (!lat1 || !lon1 || !lat2 || !lon2 || 
+      isNaN(lat1) || isNaN(lon1) || isNaN(lat2) || isNaN(lon2)) {
+    console.error('Invalid coordinates for distance calculation:', { lat1, lon1, lat2, lon2 });
+    return Infinity; // Return large distance for invalid coordinates
+  }
+  
   const R = 6371e3; // Earth's radius in meters
   const φ1 = lat1 * Math.PI/180;
   const φ2 = lat2 * Math.PI/180;
