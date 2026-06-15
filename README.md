@@ -1,5 +1,6 @@
 # Smart Attendance Management System
 
+
 A comprehensive MERN stack application for automated attendance tracking using face recognition, QR codes, and GPS verification.
 
 ## Features
@@ -77,7 +78,6 @@ npm install
 cd ../frontend
 npm install
 ```
-
 ### 3. Environment Setup
 
 Create `.env` file in the backend directory:
@@ -323,5 +323,4 @@ For support and questions:
 - Check the documentation
 
 ---
-
 **Note**: This is a complete, production-ready attendance management system with all core features implemented. The system includes proper security measures, error handling, and user-friendly interfaces for all user roles.
