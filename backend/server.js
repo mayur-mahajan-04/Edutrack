@@ -110,7 +110,7 @@ app.use('*', (req, res) => {
   // Optimized MongoDB connection
   const connectDB = async () => {
     try {
-      await mongoose.connect(process.env.MONGODB_URI, {
+      await mongoose.connect(mongodb+srv://mayurmahajan492005_db_user:HKzWzTxsGkPNsN7c@cluster0.1fee0zc.mongodb.net/, {
         maxPoolSize: 20,
         minPoolSize: 2,
         serverSelectionTimeoutMS: 5000,
