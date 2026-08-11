@@ -109,19 +109,20 @@ app.use('*', (req, res) => {
 
   // Optimized MongoDB connection
   const connectDB = async () => {
-    try {
-      await mongoose.connect(mongodb+srv://mayurmahajan492005_db_user:HKzWzTxsGkPNsN7c@cluster0.1fee0zc.mongodb.net/, {
-        maxPoolSize: 20,
-        minPoolSize: 2,
-        serverSelectionTimeoutMS: 5000,
-        socketTimeoutMS: 45000
-      });
-      logger.info('MongoDB connected successfully');
-    } catch (err) {
-      logger.error('MongoDB connection error', { error: err.message });
-      setTimeout(connectDB, 5000);
-    }
-  };
+  try {
+    await mongoose.connect(process.env.MONGODB_URI, {
+      maxPoolSize: 20,
+      minPoolSize: 2,
+      serverSelectionTimeoutMS: 5000,
+      socketTimeoutMS: 45000
+    });
+
+    logger.info('MongoDB connected successfully');
+  } catch (err) {
+    logger.error('MongoDB connection error', { error: err.message });
+    setTimeout(connectDB, 5000);
+  }
+};
 
   connectDB();
 
